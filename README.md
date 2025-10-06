@@ -25,5 +25,5 @@ An intelligent job tracking automation tool built by **Akhilesh Ankur**, designe
 ## 📄 Setup Instructions
 1. Clone this repo:
    ```bash
-   git clone https://github.com/Akhilesh-Ankur09/LinkedIn-Job-Tracker.git
-   cd LinkedIn-Job-Tracker
+   git clone https://github.com/Akhilesh-Ankur09/PyRemote-AI.git
+   cd PyRemote-AI
