@@ -1,2 +1,4 @@
-requests
+streamlit
+requests==2.32.4
+feedparser
 pandas

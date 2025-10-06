@@ -22,3 +22,12 @@ Thumbs.db
 *.csv
 *.sqlite3
 *.db
+
+
+# --- PyRemote-AI Phase 2 additions ---
+
+# Streamlit data and user files
+data/
+config.json
+
+
