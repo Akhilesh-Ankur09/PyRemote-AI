@@ -3,3 +3,6 @@ requests==2.32.4
 feedparser
 pandas
 pillow
+rapidfuzz
+sentence-transformers
+torch
