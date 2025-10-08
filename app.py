@@ -3,48 +3,20 @@ import streamlit as st
 import pandas as pd
 import json
 import os
-import io
 from PIL import Image
 from core.job_sources import fetch_jobs
 from core.notifier import send_email
 
-# ✅ DEBUG: Confirm if Streamlit Cloud secrets are loaded
-try:
-    if hasattr(st, "secrets") and len(st.secrets) > 0:
-        if "email_sender" in st.secrets:
-            sender_info = st.secrets["email_sender"]
-            has_email = "sender_email" in sender_info
-            has_pass = "app_password" in sender_info
-            if has_email and has_pass:
-                st.sidebar.success("✅ Streamlit Secrets: Email credentials detected")
-            else:
-                st.sidebar.warning("⚠️ Streamlit Secrets found, but missing sender_email or app_password")
-        else:
-            st.sidebar.warning("⚠️ Streamlit Secrets exist, but no [email_sender] section found")
-    else:
-        st.sidebar.error("❌ Streamlit Secrets not detected — using local config.json fallback")
-except Exception as e:
-    st.sidebar.error(f"⚠️ Error checking secrets: {e}")
 
-
-# ---------- DEBUG: Check Streamlit Secrets ----------
-try:
-    if hasattr(st, "secrets") and len(st.secrets) > 0:
-        st.sidebar.info("✅ Streamlit secrets loaded successfully.")
-        st.sidebar.write("Secrets keys detected:", list(st.secrets.keys()))
-    else:
-        st.sidebar.error("⚠️ No secrets detected. Using local config fallback.")
-except Exception as e:
-    st.sidebar.error(f"❌ Secrets access error: {e}")
-
-# ---------- Page Setup ----------
+# ---------- STREAMLIT SETUP ----------
 st.set_page_config(
     page_title="PyRemote-AI",
     page_icon="assets/logo.png",
     layout="wide"
 )
 
-# Header with logo
+
+# ---------- HEADER ----------
 col1, col2 = st.columns([1, 9])
 with col1:
     try:
@@ -54,14 +26,11 @@ with col1:
         st.write("🤖")
 with col2:
     st.title("PyRemote-AI Dashboard")
-    st.markdown("**AI-powered remote job discovery assistant.** 🌍")
+    st.markdown("**AI-powered Remote Job Discovery Assistant.** 🌍")
 
-# ---------- Sidebar: Preferences ----------
-st.sidebar.header("⚙️ Preferences")
 
+# ---------- CONFIG LOADING ----------
 CONFIG_PATH = "data/user_config.json"
-
-# Load saved preferences safely
 if os.path.exists(CONFIG_PATH):
     try:
         with open(CONFIG_PATH, "r", encoding="utf-8") as f:
@@ -71,40 +40,84 @@ if os.path.exists(CONFIG_PATH):
 else:
     user_conf = {}
 
-email = st.sidebar.text_input("📧 Your Email", user_conf.get("email", ""))
-keywords = st.sidebar.text_area(
-    "🔍 Keywords (comma separated)",
-    ",".join(user_conf.get("keywords", ["Python", "AI"]))
-)
-sources = st.sidebar.multiselect(
-    "🌐 Job Sources",
-    ["RemoteOK", "WeWorkRemotely"],
-    default=user_conf.get("sources", ["RemoteOK"])
-)
-experience = st.sidebar.selectbox(
-    "💼 Experience Level (for future filtering)",
-    ["Fresher", "0-2 years", "3-5 years", "5+ years"],
-    index=0
-)
-save_pref = st.sidebar.button("💾 Save Preferences")
 
-if save_pref:
-    os.makedirs("data", exist_ok=True)
-    user_conf = {
-        "email": email,
-        "keywords": [k.strip() for k in keywords.split(",") if k.strip()],
-        "sources": sources,
-        "experience": experience
-    }
-    with open(CONFIG_PATH, "w", encoding="utf-8") as f:
-        json.dump(user_conf, f, indent=4, ensure_ascii=False)
-    st.sidebar.success("✅ Preferences Saved")
+# ---------- SIDEBAR UI ----------
+with st.sidebar:
+    # --- Branding ---
+    st.image("assets/logo.png", width=120)
+    st.markdown("<h2 style='text-align:center;'>PyRemote-AI</h2>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align:center; color:gray;'>AI-powered Remote Job Finder 🌍</p>", unsafe_allow_html=True)
+    st.markdown("---")
 
-st.sidebar.markdown("---")
-st.sidebar.markdown("**Built by [Akhilesh Ankur](https://github.com/Akhilesh-Ankur09)** 🇯🇵")
-st.sidebar.markdown("🔒 Note: keep `config.json` private (contains Gmail app password).")
+    # --- User Profile ---
+    with st.expander("👤 User Profile", expanded=True):
+        email = st.text_input("📧 Email Address", user_conf.get("email", ""))
 
-# ---------- Helper Function ----------
+        exp_levels = ["Fresher", "0–2 years", "3–5 years", "5+ years"]
+        # Normalize to handle both hyphens and en-dashes
+        user_exp = user_conf.get("experience", "Fresher").replace("–", "-")
+        exp_levels_normalized = [e.replace("–", "-") for e in exp_levels]
+
+        if user_exp not in exp_levels_normalized:
+            exp_index = 0
+        else:
+            exp_index = exp_levels_normalized.index(user_exp)
+
+        experience = st.selectbox("💼 Experience Level", exp_levels, index=exp_index)
+
+    # --- Search Preferences ---
+    with st.expander("🔍 Job Search Settings", expanded=True):
+        keywords = st.text_area(
+            "🧩 Keywords (comma separated)",
+            ",".join(user_conf.get("keywords", ["Python", "AI"]))
+        )
+        sources = st.multiselect(
+            "🌐 Job Sources",
+            ["RemoteOK", "WeWorkRemotely"],
+            default=user_conf.get("sources", ["RemoteOK"])
+        )
+
+    # --- Save Preferences ---
+    save_pref = st.button("💾 Save Preferences")
+    if save_pref:
+        os.makedirs("data", exist_ok=True)
+        user_conf = {
+            "email": email,
+            "keywords": [k.strip() for k in keywords.split(",") if k.strip()],
+            "sources": sources,
+            "experience": experience
+        }
+        with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+            json.dump(user_conf, f, indent=4, ensure_ascii=False)
+        st.success("✅ Preferences Saved Successfully!")
+
+    st.markdown("---")
+
+    # --- About Section ---
+    st.markdown("### ℹ️ About PyRemote-AI")
+    st.info(
+        "PyRemote-AI helps you discover, analyze, and receive curated remote jobs "
+        "using AI-driven matching. Run your search, download results, or get them "
+        "instantly delivered to your inbox. 📬"
+    )
+
+    # --- Footer ---
+    st.markdown("---")
+    st.markdown(
+        """
+        <div style="text-align:center; font-size:14px;">
+            <b>Created by</b><br>
+            <a href="https://github.com/Akhilesh-Ankur09" target="_blank">Akhilesh Ankur</a><br>
+            <a href="https://www.linkedin.com/in/akhilesh-ankur-3354712aa" target="_blank">LinkedIn</a> |
+            <a href="https://github.com/Akhilesh-Ankur09" target="_blank">GitHub</a><br><br>
+            🇯🇵 <i>Journey to Japan · 2025</i>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+
+# ---------- HELPER FUNCTION ----------
 def jobs_to_df(jobs):
     if not jobs:
         return pd.DataFrame()
@@ -114,14 +127,13 @@ def jobs_to_df(jobs):
     extras = [c for c in df.columns if c not in present]
     return df[present + extras]
 
-# ---------- Main ----------
+
+# ---------- MAIN APP ----------
 st.header("Run Job Search")
 
-# Keep jobs persistent in session
 if "jobs" not in st.session_state:
     st.session_state.jobs = []
 
-# --- Run Search button ---
 if st.button("🚀 Run Search Now"):
     kw_list = [k.strip() for k in keywords.split(",") if k.strip()]
     if not kw_list:
@@ -134,16 +146,15 @@ if st.button("🚀 Run Search Now"):
                 st.error(f"Failed to fetch jobs: {e}")
                 st.session_state.jobs = []
 
-# --- Display results ---
 jobs = st.session_state.jobs
 if not jobs:
     st.info("No job results yet. Click **Run Search Now**.")
 else:
     df = jobs_to_df(jobs)
     st.success(f"Found {len(df)} job(s)! Displaying below:")
-    st.dataframe(df, use_container_width=True)
+    st.dataframe(df, width="stretch")
 
-    # ---------- CSV Handling ----------
+    # --- Save CSV ---
     os.makedirs("data", exist_ok=True)
     csv_path = "data/job_results.csv"
     try:
@@ -155,7 +166,7 @@ else:
     except Exception as e:
         st.warning(f"⚠️ Could not save CSV: {e}")
 
-    # ---------- Email Sending ----------
+    # --- Email Sending ---
     st.markdown("### 📬 Email Options")
     st.caption("Send the current job results to your inbox.")
 
@@ -175,11 +186,10 @@ else:
                     st.error("⚠️ config.json not found. Add your Gmail credentials.")
                 except Exception as e:
                     st.error(f"❌ Failed to send email: {e}")
-
     elif st.session_state.email_sent:
         st.info("✅ Email already sent in this session.")
 
-# ---------- Export / Analytics ----------
+# ---------- EXPORT / ANALYTICS ----------
 st.markdown("---")
 st.header("Export / Utilities")
 
