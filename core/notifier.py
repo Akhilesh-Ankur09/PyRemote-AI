@@ -3,63 +3,80 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import json
 import os
+import streamlit as st
+
+
+def load_credentials():
+    """
+    Load Gmail credentials.
+    Priority:
+      1️⃣ Streamlit Cloud secrets (if available)
+      2️⃣ Local config.json (for local testing)
+    """
+    try:
+        # --- Cloud: Streamlit Secrets ---
+        if hasattr(st, "secrets") and len(st.secrets) > 0:
+            if "sender_email" in st.secrets and "app_password" in st.secrets:
+                st.write("🔐 Using Streamlit Cloud secrets.")
+                return {
+                    "sender_email": st.secrets["sender_email"],
+                    "app_password": st.secrets["app_password"]
+                }
+            # In case secrets are nested (some Streamlit setups)
+            elif "general" in st.secrets:
+                general = st.secrets["general"]
+                if "sender_email" in general and "app_password" in general:
+                    st.write("🔐 Using nested Streamlit secrets.")
+                    return {
+                        "sender_email": general["sender_email"],
+                        "app_password": general["app_password"]
+                    }
+
+        # --- Local fallback: config.json ---
+        config_path = "config.json"
+        if os.path.exists(config_path):
+            with open(config_path, "r", encoding="utf-8") as f:
+                creds = json.load(f)
+                st.write("💻 Using local config.json credentials.")
+                return creds
+        else:
+            raise FileNotFoundError("config.json not found locally or no Streamlit secrets detected.")
+    except Exception as e:
+        st.error(f"❌ Failed to load credentials: {e}")
+        return {}
 
 
 def send_email(jobs, recipient=None):
     """
-    Send job results using Gmail SMTP and credentials from config.json.
-    The config.json file must be located in the project root (same folder as app.py).
+    Sends job summary email.
+    Reads credentials via load_credentials().
     """
-
-    # --- Locate config.json dynamically (works locally & on Streamlit Cloud) ---
-    config_path = os.path.join(os.path.dirname(__file__), "..", "config.json")
-    config_path = os.path.abspath(config_path)
-
-    if not os.path.exists(config_path):
-        raise FileNotFoundError(f"❌ config.json not found at: {config_path}\n"
-                                "Make sure it exists next to app.py (not inside /core/).")
-
-    # --- Load credentials safely ---
-    try:
-        with open(config_path, "r", encoding="utf-8") as f:
-            creds = json.load(f)
-    except json.JSONDecodeError:
-        raise ValueError("⚠️ config.json is invalid. Please fix formatting (check commas, quotes, etc).")
-    except Exception as e:
-        raise Exception(f"⚠️ Failed to read config.json: {e}")
-
+    creds = load_credentials()
     sender = creds.get("sender_email")
     password = creds.get("app_password")
 
     if not sender or not password:
-        raise ValueError("❌ Email or app password missing in config.json. "
-                         "Ensure keys are 'sender_email' and 'app_password'.")
+        raise ValueError("Email or password missing. Check your Streamlit secrets or config.json.")
 
-    # --- Build email content ---
-    body_lines = []
+    # Format email body
+    body = "Here are your latest job results from PyRemote-AI 🚀\n\n"
     for job in jobs:
-        title = job.get("Title", "N/A")
-        company = job.get("Company", "N/A")
-        location = job.get("Location", "Remote")
-        url = job.get("URL", "")
-        body_lines.append(f"{title} at {company} ({location})\n{url}\n")
-
-    body = "\n".join(body_lines) if body_lines else "No job results found."
+        body += f"🔹 {job.get('Title', 'N/A')} at {job.get('Company', 'N/A')} ({job.get('Location', 'Remote')})\n"
+        body += f"🔗 {job.get('URL', '')}\n\n"
 
     msg = MIMEMultipart()
     msg["From"] = sender
     msg["To"] = recipient or sender
     msg["Subject"] = "Your PyRemote-AI Job Results"
-    msg.attach(MIMEText(body, "plain", "utf-8"))
+    msg.attach(MIMEText(body, "plain"))
 
-    # --- Send via Gmail SMTP ---
     try:
         with smtplib.SMTP("smtp.gmail.com", 587) as server:
             server.starttls()
             server.login(sender, password)
             server.send_message(msg)
-            print(f"✅ Email sent successfully from {sender} to {recipient or sender}")
+            st.write("✅ Email sent successfully.")
     except smtplib.SMTPAuthenticationError:
-        raise Exception("❌ Gmail authentication failed. Check your App Password and 2-Step Verification settings.")
+        raise Exception("Authentication failed. Double-check your Gmail App Password.")
     except Exception as e:
-        raise Exception(f"⚠️ SMTP error: {e}")
+        raise Exception(f"SMTP error: {e}")
