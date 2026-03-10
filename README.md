@@ -128,4 +128,4 @@ It demonstrates real-world automation engineering, AI-based filtering, and produ
 
 Akhilesh Ankur
 
-AI Automation Engineer & Data Science Consultant
+Generative AI Developer & AI Automation Engineer  
