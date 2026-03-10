@@ -120,6 +120,10 @@ It demonstrates real-world automation engineering, AI-based filtering, and produ
 
 ---
 
+## Example Output
+<img width="1191" height="762" alt="image" src="https://github.com/user-attachments/assets/a84aa456-ebce-44f3-bb53-b0c98e43b027" />
+
+
 ## Author
 
 Akhilesh Ankur
